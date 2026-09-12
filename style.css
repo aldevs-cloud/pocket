@@ -273,17 +273,32 @@ button[type=submit]:hover,.primary-btn:hover{background:var(--primary-dark);}
 .tally-row .t-desc{color:var(--ink-soft);flex:1;}
 .tally-row .t-amt{font-weight:600;font-variant-numeric:tabular-nums;}
 .tally-row .t-del{background:none;border:none;color:var(--warn);font-size:1rem;padding:0 2px;}
-.tally-add-row{display:flex;gap:8px;}
-.tally-add-row input[type=text]{flex:2;}
-.tally-add-row input[type=number]{flex:1;}
+.tally-add-row{display:flex;gap:8px;align-items:stretch;}
+.tally-add-row input{min-width:0;}
+.tally-add-row input[type=text]{flex:1 1 auto;}
+.tally-add-row input[type=number]{
+  flex:0 1 84px;
+  width:84px;
+  text-align:right;
+  -moz-appearance:textfield;
+}
+.tally-add-row input[type=number]::-webkit-outer-spin-button,
+.tally-add-row input[type=number]::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
 .tally-add-row button{
   background:var(--primary);
   color:#fff;
   border:none;
   border-radius:8px;
   width:38px;
+  flex:0 0 38px;
   font-size:1.1rem;
   font-weight:700;
+}
+@media (max-width:420px){
+  .tally-add-row input[type=number]{flex-basis:70px;width:70px;padding-left:8px;padding-right:8px;}
 }
 
 .form-actions{display:flex;flex-direction:column;gap:10px;}
