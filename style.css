@@ -475,6 +475,128 @@ button[type=submit]:hover,.primary-btn:hover{background:var(--primary-dark);}
   .cal-cell{font-size:.62rem;padding:4px 3px;}
 }
 
+/* ---------- Expense plans (multiple planning lists) ---------- */
+.plan-tabs{
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  padding-bottom:8px;
+  margin-bottom:18px;
+}
+.plan-tab-btn{
+  flex:0 0 auto;
+  background:var(--line-soft);
+  border:none;
+  border-radius:8px;
+  padding:9px 14px;
+  font-size:.85rem;
+  font-weight:600;
+  color:var(--ink-soft);
+  white-space:nowrap;
+}
+.plan-tab-btn.active{background:var(--primary);color:#fff;}
+.plan-tab-add{
+  flex:0 0 auto;
+  background:transparent;
+  border:1px dashed var(--line);
+  border-radius:8px;
+  padding:9px 14px;
+  font-size:.85rem;
+  font-weight:700;
+  color:var(--primary-dark);
+  white-space:nowrap;
+}
+.plan-tab-add:hover{background:var(--primary-soft);}
+
+.plan-meta{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-m);
+  padding:18px 20px;
+  margin-bottom:18px;
+  box-shadow:var(--shadow-card);
+}
+.plan-meta-title{display:flex;align-items:center;gap:8px;}
+.plan-meta-title h3{font-size:1.15rem;word-break:break-word;}
+.icon-btn{
+  background:none;
+  border:none;
+  color:var(--ink-faint);
+  font-size:.95rem;
+  padding:2px 4px;
+  flex-shrink:0;
+}
+.icon-btn:hover{color:var(--primary);}
+.plan-created{color:var(--ink-soft);font-size:.82rem;margin-top:4px;}
+.plan-meta-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+.ghost-btn.small,.danger.small{width:auto;padding:8px 14px;font-size:.8rem;}
+
+.plan-item-form{margin-bottom:16px;}
+
+.plan-items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+.plan-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-s);
+  padding:12px 14px;
+  flex-wrap:wrap;
+}
+.plan-item.done{background:var(--primary-soft);border-color:var(--primary-soft);}
+.plan-check input[type=checkbox]{
+  width:19px;height:19px;accent-color:var(--primary);cursor:pointer;
+}
+.plan-item-main{flex:1 1 140px;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.plan-item-name{font-weight:600;font-size:.92rem;word-break:break-word;}
+.plan-item.done .plan-item-name{text-decoration:line-through;color:var(--ink-soft);}
+.plan-item-amt{font-variant-numeric:tabular-nums;color:var(--ink-soft);font-size:.85rem;}
+.plan-item-date{display:flex;align-items:center;flex-shrink:0;}
+.plan-item-date input[type=date]{
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:6px 8px;
+  font-size:.78rem;
+  background:var(--bg);
+}
+.plan-item-actions{display:flex;gap:6px;flex-shrink:0;}
+.plan-item-actions button{
+  background:none;
+  border:none;
+  font-size:.95rem;
+  padding:2px 4px;
+  color:var(--ink-faint);
+}
+.plan-item-actions button.edit:hover{color:var(--primary);}
+.plan-item-actions button.del:hover{color:var(--warn);}
+
+.plan-item-edit{display:flex;flex-wrap:wrap;gap:8px;flex:1;align-items:center;}
+.plan-item-edit input[type=text]{flex:1 1 140px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg);}
+.plan-item-edit input[type=number]{flex:0 1 100px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg);}
+.plan-item-edit-actions{display:flex;gap:6px;}
+.plan-item-edit-actions button{
+  border:none;border-radius:7px;padding:8px 12px;font-size:.8rem;font-weight:600;
+}
+.plan-item-edit-actions button.save{background:var(--primary);color:#fff;}
+.plan-item-edit-actions button.cancel{background:var(--line-soft);color:var(--ink-soft);}
+
+.plan-summary{
+  display:flex;
+  gap:14px;
+  background:var(--sidebar);
+  border:1px solid var(--line);
+  border-radius:var(--radius-m);
+  padding:16px 18px;
+}
+.plan-summary div{flex:1;display:flex;flex-direction:column;gap:2px;}
+.plan-summary span{font-weight:700;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--primary-dark);}
+.plan-summary small{color:var(--ink-faint);font-size:.72rem;}
+
+@media (max-width:420px){
+  .plan-summary{flex-direction:column;gap:10px;}
+}
+
 /* ---------- Print ---------- */
 .print-only{display:none;}
 @media print{
