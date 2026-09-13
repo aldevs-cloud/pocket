@@ -85,6 +85,9 @@
         <button data-tab="settings" class="nav-btn">
           <span class="nav-ic">⚙</span>ব্যালেন্স ও সেটিংস
         </button>
+        <button data-tab="plans" class="nav-btn">
+          <span class="nav-ic">☑</span>খরচের প্ল্যান
+        </button>
       </nav>
     </aside>
 
@@ -230,6 +233,49 @@
         </div>
       </section>
 
+      <!-- PLANS (multiple named expense-planning lists) -->
+      <section id="tab-plans" class="tab-panel hidden">
+        <h2>খরচের প্ল্যান</h2>
+
+        <div class="plan-tabs" id="planTabsStrip"></div>
+
+        <p id="planEmpty" class="empty-state hidden">এখনো কোনো প্ল্যান তৈরি করা হয়নি। উপরে থেকে "+ নতুন" চেপে একটি প্ল্যান তৈরি করুন।</p>
+
+        <div id="planPanel" class="plan-panel hidden">
+          <div class="plan-meta">
+            <div class="plan-meta-title">
+              <h3 id="planTitle">—</h3>
+              <button type="button" id="planRenameBtn" class="icon-btn" aria-label="নাম পরিবর্তন করুন">✎</button>
+            </div>
+            <p class="plan-created" id="planCreatedLabel"></p>
+            <div class="plan-meta-actions">
+              <button type="button" id="planPdfBtn" class="ghost-btn small">এই প্ল্যান PDF করুন</button>
+              <button type="button" id="planDeleteBtn" class="danger small">এই প্ল্যান মুছুন</button>
+            </div>
+          </div>
+
+          <form id="planItemForm" class="card plan-item-form">
+            <div class="two-col">
+              <label>খরচের নাম
+                <input type="text" id="planItemName" required placeholder="যেমন: বাজার">
+              </label>
+              <label>কত টাকা লাগবে (৳)
+                <input type="number" id="planItemAmount" inputmode="decimal" min="0" step="1" required placeholder="৳0">
+              </label>
+            </div>
+            <button type="submit">তালিকায় যোগ করুন</button>
+          </form>
+
+          <div id="planItemsList" class="plan-items-list"></div>
+
+          <div class="plan-summary">
+            <div><span id="planTotalPlanned">৳0</span><small>মোট পরিকল্পনা</small></div>
+            <div><span id="planTotalDone">৳0</span><small>সম্পন্ন খরচ</small></div>
+            <div><span id="planTotalRemaining">৳0</span><small>বাকি আছে</small></div>
+          </div>
+        </div>
+      </section>
+
     </main>
 
     <nav class="bottom-tabs" id="bottomTabs">
@@ -237,6 +283,7 @@
       <button data-tab="calendar"><span class="nav-ic">▦</span>ক্যালেন্ডার</button>
       <button data-tab="history"><span class="nav-ic">≡</span>তালিকা</button>
       <button data-tab="settings"><span class="nav-ic">⚙</span>সেটিংস</button>
+      <button data-tab="plans"><span class="nav-ic">☑</span>প্ল্যান</button>
     </nav>
   </div>
 
