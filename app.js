@@ -33,7 +33,7 @@
   var state = null;
 
   function defaultState(){
-    return { setup: null, topups: [], entries: {}, quickNotes: {} };
+    return { setup: null, topups: [], entries: {}, quickNotes: {}, plans: [], activePlanId: null };
   }
 
   function load(){
@@ -45,7 +45,9 @@
         setup: parsed.setup || null,
         topups: parsed.topups || [],
         entries: parsed.entries || {},
-        quickNotes: parsed.quickNotes || {}
+        quickNotes: parsed.quickNotes || {},
+        plans: parsed.plans || [],
+        activePlanId: parsed.activePlanId || null
       };
     }catch(e){
       console.error("লোড করতে সমস্যা হয়েছে", e);
@@ -110,7 +112,7 @@
   }
 
   /* ---------------- tabs ---------------- */
-  var tabs = ["add","calendar","history","settings"];
+  var tabs = ["add","calendar","history","settings","plans"];
   function switchTab(name){
     tabs.forEach(function(t){
       $("tab-"+t).classList.toggle("hidden", t !== name);
@@ -124,6 +126,7 @@
     if(name === "calendar") renderCalendar();
     if(name === "history") renderHistory();
     if(name === "settings") fillSettingsForm();
+    if(name === "plans") renderPlans();
   }
   document.querySelectorAll(".nav-btn, #bottomTabs button").forEach(function(btn){
     btn.addEventListener("click", function(){ switchTab(btn.dataset.tab); });
@@ -359,6 +362,239 @@
     });
   }
 
+  /* ---------------- expense plans (multiple named planning lists) ---------------- */
+  var editingPlanItemId = null;
+
+  function getActivePlan(){
+    if(!state.activePlanId) return null;
+    for(var i=0;i<state.plans.length;i++){
+      if(state.plans[i].id === state.activePlanId) return state.plans[i];
+    }
+    return null;
+  }
+
+  function createPlan(){
+    var plan = {
+      id: uid(),
+      title: "প্ল্যান " + (state.plans.length + 1),
+      createdDate: todayStr(),
+      items: []
+    };
+    state.plans.push(plan);
+    state.activePlanId = plan.id;
+    editingPlanItemId = null;
+    save();
+    renderPlans();
+  }
+
+  function selectPlan(id){
+    state.activePlanId = id;
+    editingPlanItemId = null;
+    save();
+    renderPlans();
+  }
+
+  function deletePlan(id){
+    if(!confirm("এই প্ল্যানটি মুছে ফেলতে চান? এর সব খরচের তালিকাও মুছে যাবে।")) return;
+    state.plans = state.plans.filter(function(p){ return p.id !== id; });
+    if(state.activePlanId === id){
+      state.activePlanId = state.plans.length ? state.plans[0].id : null;
+    }
+    editingPlanItemId = null;
+    save();
+    renderPlans();
+  }
+
+  function renamePlan(id){
+    var plan = null;
+    for(var i=0;i<state.plans.length;i++){ if(state.plans[i].id === id) plan = state.plans[i]; }
+    if(!plan) return;
+    var name = prompt("প্ল্যানের নাম লিখুন", plan.title);
+    if(name === null) return;
+    name = name.trim();
+    if(!name) return;
+    plan.title = name;
+    save();
+    renderPlans();
+  }
+
+  function planTotals(plan){
+    var totalPlanned = 0, totalDone = 0;
+    plan.items.forEach(function(it){
+      totalPlanned += Number(it.amount || 0);
+      if(it.done) totalDone += Number(it.amount || 0);
+    });
+    return { totalPlanned: totalPlanned, totalDone: totalDone, remaining: totalPlanned - totalDone };
+  }
+
+  function renderPlans(){
+    var stripEl = $("planTabsStrip");
+    stripEl.innerHTML = "";
+    state.plans.forEach(function(p){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "plan-tab-btn" + (p.id === state.activePlanId ? " active" : "");
+      btn.textContent = p.title;
+      btn.addEventListener("click", function(){ selectPlan(p.id); });
+      stripEl.appendChild(btn);
+    });
+    var addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "plan-tab-add";
+    addBtn.textContent = "+ নতুন";
+    addBtn.addEventListener("click", createPlan);
+    stripEl.appendChild(addBtn);
+
+    var plan = getActivePlan();
+    if(!plan){
+      $("planEmpty").classList.remove("hidden");
+      $("planPanel").classList.add("hidden");
+      return;
+    }
+    $("planEmpty").classList.add("hidden");
+    $("planPanel").classList.remove("hidden");
+
+    $("planTitle").textContent = plan.title;
+    $("planCreatedLabel").textContent = "তৈরি হয়েছে: " + fmtDateHuman(plan.createdDate);
+
+    renderPlanItems(plan);
+  }
+
+  function renderPlanItems(plan){
+    var container = $("planItemsList");
+    container.innerHTML = "";
+
+    if(plan.items.length === 0){
+      container.innerHTML = '<p class="empty-state">এখনো কোনো খরচ যোগ করা হয়নি</p>';
+    } else {
+      plan.items.forEach(function(item){
+        var row = document.createElement("div");
+
+        if(editingPlanItemId === item.id){
+          row.className = "plan-item";
+          row.innerHTML =
+            '<div class="plan-item-edit">' +
+              '<input type="text" class="edit-name">' +
+              '<input type="number" class="edit-amount" min="0" step="1">' +
+              '<div class="plan-item-edit-actions">' +
+                '<button type="button" class="save">সেভ</button>' +
+                '<button type="button" class="cancel">বাতিল</button>' +
+              '</div>' +
+            '</div>';
+          row.querySelector(".edit-name").value = item.name;
+          row.querySelector(".edit-amount").value = Number(item.amount || 0);
+          row.querySelector(".save").addEventListener("click", function(){
+            var name = row.querySelector(".edit-name").value.trim();
+            var amount = Number(row.querySelector(".edit-amount").value || 0);
+            if(!name) return;
+            item.name = name;
+            item.amount = amount;
+            editingPlanItemId = null;
+            save();
+            renderPlanItems(plan);
+          });
+          row.querySelector(".cancel").addEventListener("click", function(){
+            editingPlanItemId = null;
+            renderPlanItems(plan);
+          });
+        } else {
+          row.className = "plan-item" + (item.done ? " done" : "");
+          row.innerHTML =
+            '<label class="plan-check">' +
+              '<input type="checkbox"' + (item.done ? " checked" : "") + '>' +
+            '</label>' +
+            '<div class="plan-item-main">' +
+              '<span class="plan-item-name">' + escapeHtml(item.name) + '</span>' +
+              '<span class="plan-item-amt">' + fmtMoney(item.amount) + '</span>' +
+            '</div>' +
+            (item.done ? '<div class="plan-item-date"><input type="date" class="done-date"></div>' : '') +
+            '<div class="plan-item-actions">' +
+              '<button type="button" class="edit" aria-label="সম্পাদনা করুন">✎</button>' +
+              '<button type="button" class="del" aria-label="মুছুন">×</button>' +
+            '</div>';
+
+          if(item.done){
+            row.querySelector(".done-date").value = item.completedDate || todayStr();
+            row.querySelector(".done-date").addEventListener("change", function(e){
+              item.completedDate = e.target.value || todayStr();
+              save();
+            });
+          }
+          row.querySelector('input[type=checkbox]').addEventListener("change", function(e){
+            item.done = e.target.checked;
+            if(item.done && !item.completedDate) item.completedDate = todayStr();
+            save();
+            renderPlanItems(plan);
+          });
+          row.querySelector(".edit").addEventListener("click", function(){
+            editingPlanItemId = item.id;
+            renderPlanItems(plan);
+          });
+          row.querySelector(".del").addEventListener("click", function(){
+            if(!confirm('"' + item.name + '" মুছে ফেলতে চান?')) return;
+            plan.items = plan.items.filter(function(x){ return x.id !== item.id; });
+            save();
+            renderPlanItems(plan);
+          });
+        }
+        container.appendChild(row);
+      });
+    }
+
+    var t = planTotals(plan);
+    $("planTotalPlanned").textContent = fmtMoney(t.totalPlanned);
+    $("planTotalDone").textContent = fmtMoney(t.totalDone);
+    $("planTotalRemaining").textContent = fmtMoney(t.remaining);
+  }
+
+  $("planItemForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var plan = getActivePlan();
+    if(!plan) return;
+    var name = $("planItemName").value.trim();
+    var amount = Number($("planItemAmount").value || 0);
+    if(!name) return;
+    plan.items.push({ id: uid(), name: name, amount: amount, done: false, completedDate: null });
+    save();
+    $("planItemName").value = "";
+    $("planItemAmount").value = "";
+    renderPlanItems(plan);
+  });
+
+  $("planRenameBtn").addEventListener("click", function(){
+    var plan = getActivePlan();
+    if(plan) renamePlan(plan.id);
+  });
+
+  $("planDeleteBtn").addEventListener("click", function(){
+    var plan = getActivePlan();
+    if(plan) deletePlan(plan.id);
+  });
+
+  $("planPdfBtn").addEventListener("click", function(){
+    var plan = getActivePlan();
+    if(!plan){ alert("আগে একটি প্ল্যান তৈরি করুন"); return; }
+    var t = planTotals(plan);
+    var rows = plan.items.map(function(it){
+      return "<tr><td>" + escapeHtml(it.name) + "</td><td>" + fmtMoney(it.amount) + "</td><td>" +
+        (it.done ? "সম্পন্ন" : "বাকি") + "</td><td>" +
+        (it.done && it.completedDate ? fmtDateHuman(it.completedDate) : "—") + "</td></tr>";
+    }).join("");
+    if(!rows) rows = '<tr><td colspan="4">এখনো কোনো খরচ যোগ করা হয়নি</td></tr>';
+
+    $("printArea").innerHTML =
+      "<h1>" + escapeHtml(plan.title) + "</h1>" +
+      '<p class="p-period">তৈরি হয়েছে: ' + fmtDateHuman(plan.createdDate) + " · রিপোর্ট তৈরি: " + fmtDateHuman(todayStr()) + "</p>" +
+      '<div class="p-summary">' +
+        "<div>মোট পরিকল্পনা<strong>" + fmtMoney(t.totalPlanned) + "</strong></div>" +
+        "<div>সম্পন্ন খরচ<strong>" + fmtMoney(t.totalDone) + "</strong></div>" +
+        "<div>বাকি<strong>" + fmtMoney(t.remaining) + "</strong></div>" +
+      "</div>" +
+      "<table><thead><tr><th>খরচের নাম</th><th>টাকা</th><th>অবস্থা</th><th>সম্পন্ন হওয়ার তারিখ</th></tr></thead><tbody>" + rows + "</tbody></table>";
+
+    window.print();
+  });
+
   /* ---------------- settings: period / balance ---------------- */
   function fillSettingsForm(){
     if(!state.setup) return;
@@ -450,7 +686,9 @@
           setup: parsed.setup || null,
           topups: parsed.topups || [],
           entries: parsed.entries || {},
-          quickNotes: parsed.quickNotes || {}
+          quickNotes: parsed.quickNotes || {},
+          plans: parsed.plans || [],
+          activePlanId: parsed.activePlanId || null
         };
         save();
         init();
