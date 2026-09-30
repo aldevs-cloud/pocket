@@ -73,6 +73,7 @@
     $("spentAmount").textContent = fmtMoney(t.totalSpent);
     $("daysPassedNum").textContent = d.daysPassed;
     $("daysLeftNum").textContent = d.daysLeft;
+    $("avgPerDay").textContent = fmtMoney(d.daysPassed > 0 ? t.totalSpent / d.daysPassed : 0);
 
     var heroEl = document.querySelector(".hero-balance");
     heroEl.classList.toggle("over-budget", t.remaining < 0);
@@ -89,7 +90,7 @@
   }
 
   /* ---------------- tabs ---------------- */
-  var tabs = ["add","calendar","history","settings","plans","bills"];
+  var tabs = ["add","calendar","settings","plans","bills"];
   function switchTab(name){
     tabs.forEach(function(t){
       $("tab-"+t).classList.toggle("hidden", t !== name);
@@ -101,7 +102,6 @@
       b.classList.toggle("active", b.dataset.tab === name);
     });
     if(name === "calendar") renderCalendar();
-    if(name === "history") renderHistory();
     if(name === "settings") fillSettingsForm();
     if(name === "plans") renderPlans();
     if(name === "bills"){ renderBills(); if(!billDtTouched) resetBillDateTime(); }
@@ -302,47 +302,6 @@
     renderCalendar();
   });
 
-  /* ---------------- history ---------------- */
-  function renderHistory(){
-    var container = $("historyList");
-    var dates = Object.keys(state.entries).sort().reverse();
-    if(dates.length === 0){
-      container.innerHTML = '<p class="empty-state">এখনো কোনো খরচ যোগ করা হয়নি</p>';
-      return;
-    }
-    container.innerHTML = "";
-    dates.forEach(function(dateStr){
-      var entry = state.entries[dateStr];
-      var amt = Number(entry.amount||0);
-      var item = document.createElement("div");
-      item.className = "history-item";
-      item.innerHTML =
-        '<div class="history-top">' +
-          '<span class="history-date">' + fmtDateHuman(dateStr) + '</span>' +
-          '<span class="history-amt' + (amt > 1000 ? ' high' : '') + '">' + fmtMoney(amt) + '</span>' +
-        '</div>' +
-        (entry.note ? '<div class="history-note">' + escapeHtml(entry.note) + '</div>' : '') +
-        '<div class="history-actions">' +
-          '<button type="button" class="edit">সম্পাদনা করুন</button>' +
-          '<button type="button" class="del">মুছুন</button>' +
-        '</div>';
-      item.querySelector(".edit").addEventListener("click", function(){
-        switchTab("add");
-        entryDateInput.value = dateStr;
-        loadEntryForDate(dateStr);
-      });
-      item.querySelector(".del").addEventListener("click", function(){
-        if(!confirm(fmtDateHuman(dateStr) + " তারিখের হিসাব মুছে ফেলতে চান?")) return;
-        delete state.entries[dateStr];
-        save();
-        renderDashboard();
-        renderHistory();
-        renderCalendarIfVisible();
-      });
-      container.appendChild(item);
-    });
-  }
-
   /* ---------------- expense plans (multiple named planning lists) ---------------- */
   var editingPlanItemId = null;
 
@@ -441,6 +400,52 @@
     renderPlanItems(plan);
   }
 
+  function startPlanDrag(e, row, container, plan){
+    if(e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    var handle = e.currentTarget;
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+    row.classList.add("dragging");
+
+    function onMove(ev){
+      var y = ev.clientY;
+      var siblings = Array.prototype.filter.call(container.children, function(c){
+        return c !== row && c.classList.contains("plan-item");
+      });
+      var target = null;
+      for(var i=0;i<siblings.length;i++){
+        var r = siblings[i].getBoundingClientRect();
+        if(y < r.top + r.height/2){ target = siblings[i]; break; }
+      }
+      if(target){
+        if(row.nextElementSibling !== target) container.insertBefore(row, target);
+      } else if(container.lastElementChild !== row){
+        container.appendChild(row);
+      }
+      if(y < 80) window.scrollBy(0, -12);
+      else if(y > window.innerHeight - 80) window.scrollBy(0, 12);
+    }
+    function onEnd(){
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onEnd);
+      handle.removeEventListener("pointercancel", onEnd);
+      row.classList.remove("dragging");
+      var byId = {};
+      plan.items.forEach(function(it){ byId[it.id] = it; });
+      var ordered = [];
+      Array.prototype.forEach.call(container.querySelectorAll(".plan-item[data-id]"), function(el){
+        if(byId[el.dataset.id]){ ordered.push(byId[el.dataset.id]); delete byId[el.dataset.id]; }
+      });
+      Object.keys(byId).forEach(function(k){ ordered.push(byId[k]); });
+      plan.items = ordered;
+      save();
+      renderPlanItems(plan);
+    }
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onEnd);
+    handle.addEventListener("pointercancel", onEnd);
+  }
+
   function renderPlanItems(plan){
     var container = $("planItemsList");
     container.innerHTML = "";
@@ -480,7 +485,11 @@
           });
         } else {
           row.className = "plan-item" + (item.done ? " done" : "");
+          row.dataset.id = item.id;
           row.innerHTML =
+            '<button type="button" class="plan-drag" aria-label="টেনে সরান">' +
+              '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>' +
+            '</button>' +
             '<label class="plan-check">' +
               '<input type="checkbox"' + (item.done ? " checked" : "") + '>' +
             '</label>' +
@@ -501,6 +510,9 @@
               save();
             });
           }
+          row.querySelector(".plan-drag").addEventListener("pointerdown", function(e){
+            startPlanDrag(e, row, container, plan);
+          });
           row.querySelector('input[type=checkbox]').addEventListener("change", function(e){
             item.done = e.target.checked;
             if(item.done && !item.completedDate) item.completedDate = todayStr();
@@ -969,6 +981,7 @@
         "<div>মোট খরচ<strong>" + fmtMoney(t.totalSpent) + "</strong></div>" +
         "<div>বাকি আছে<strong>" + fmtMoney(t.remaining) + "</strong></div>" +
         "<div>দিন পার / বাকি<strong>" + d.daysPassed + " / " + d.daysLeft + "</strong></div>" +
+        "<div>গড় খরচ / দিন<strong>" + fmtMoney(d.daysPassed > 0 ? t.totalSpent / d.daysPassed : 0) + "</strong></div>" +
       "</div>" +
       "<table><thead><tr><th>তারিখ</th><th>খরচ</th><th>নোট</th></tr></thead><tbody>" + rows + "</tbody></table>";
 
