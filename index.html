@@ -168,30 +168,28 @@
           <div class="hero-sub-item"><span id="daysPassedNum">0</span><small>দিন পার</small></div>
           <div class="hero-sub-item"><span id="daysLeftNum">0</span><small>দিন বাকি</small></div>
         </div>
+        <div class="hero-avg"><span id="avgPerDay">৳0</span><small>প্রতিদিন গড়ে খরচ করছেন (এ পর্যন্ত)</small></div>
         <p class="suggest" id="suggestBudget"></p>
       </div>
 
       <nav class="nav" id="navButtons">
         <button data-tab="add" class="nav-btn active">
-          <span class="nav-ic">＋</span>আজকের খরচ যোগ করুন
+          <span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>আজকের খরচ যোগ করুন
         </button>
         <button data-tab="calendar" class="nav-btn">
-          <span class="nav-ic">▦</span>ক্যালেন্ডার
-        </button>
-        <button data-tab="history" class="nav-btn">
-          <span class="nav-ic">≡</span>সব খরচের তালিকা
+          <span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>ক্যালেন্ডার
         </button>
         <button data-tab="plans" class="nav-btn">
-          <span class="nav-ic">☑</span>খরচের প্ল্যান
+          <span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8M13 12h8M13 18h8"/></svg></span>খরচের প্ল্যান
         </button>
         <button data-tab="bills" class="nav-btn">
-          <span class="nav-ic">⚡</span>বিল ট্র্যাকার
+          <span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>বিল ট্র্যাকার
         </button>
         <button data-tab="settings" class="nav-btn">
-          <span class="nav-ic">⚙</span>ব্যালেন্স ও সেটিংস
+          <span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>ব্যালেন্স ও সেটিংস
         </button>
         <button type="button" data-action="logout" class="nav-btn logout-btn">
-          <span class="nav-ic">↩</span>লগ আউট
+          <span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>লগ আউট
         </button>
       </nav>
     </aside>
@@ -269,12 +267,6 @@
           <span>র</span><span>সো</span><span>ম</span><span>বু</span><span>বৃ</span><span>শু</span><span>শ</span>
         </div>
         <div class="cal-grid" id="calGrid"></div>
-      </section>
-
-      <!-- HISTORY -->
-      <section id="tab-history" class="tab-panel hidden">
-        <h2>সব খরচের তালিকা</h2>
-        <div id="historyList" class="history-list"></div>
       </section>
 
       <!-- SETTINGS -->
@@ -450,13 +442,12 @@
     </main>
 
     <nav class="bottom-tabs" id="bottomTabs">
-      <button data-tab="add" class="active"><span class="nav-ic">＋</span>যোগ করুন</button>
-      <button data-tab="calendar"><span class="nav-ic">▦</span>ক্যালেন্ডার</button>
-      <button data-tab="history"><span class="nav-ic">≡</span>তালিকা</button>
-      <button data-tab="plans"><span class="nav-ic">☑</span>প্ল্যান</button>
-      <button data-tab="bills"><span class="nav-ic">⚡</span>বিল</button>
-      <button data-tab="settings"><span class="nav-ic">⚙</span>সেটিংস</button>
-      <button type="button" data-action="logout" class="logout-tab"><span class="nav-ic">↩</span>লগ আউট</button>
+      <button data-tab="add" class="active"><span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>যোগ করুন</button>
+      <button data-tab="calendar"><span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>ক্যালেন্ডার</button>
+      <button data-tab="plans"><span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8M13 12h8M13 18h8"/></svg></span>প্ল্যান</button>
+      <button data-tab="bills"><span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>বিল</button>
+      <button data-tab="settings"><span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>সেটিংস</button>
+      <button type="button" data-action="logout" class="logout-tab"><span class="nav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>লগ আউট</button>
     </nav>
   </div>
 
