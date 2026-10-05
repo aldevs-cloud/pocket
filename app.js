@@ -86,10 +86,11 @@
     } else {
       suggestEl.textContent = "নির্ধারিত সময় শেষ হয়ে গেছে";
     }
+    renderTodayLimit();
   }
 
   /* ---------------- tabs ---------------- */
-  var tabs = ["add","calendar","history","settings","plans","bills"];
+  var tabs = ["add","calendar","stats","settings","plans","bills"];
   function switchTab(name){
     tabs.forEach(function(t){
       $("tab-"+t).classList.toggle("hidden", t !== name);
@@ -101,7 +102,7 @@
       b.classList.toggle("active", b.dataset.tab === name);
     });
     if(name === "calendar") renderCalendar();
-    if(name === "history") renderHistory();
+    if(name === "stats") renderStats();
     if(name === "settings") fillSettingsForm();
     if(name === "plans") renderPlans();
     if(name === "bills"){ renderBills(); if(!billDtTouched) resetBillDateTime(); }
@@ -302,45 +303,71 @@
     renderCalendar();
   });
 
-  /* ---------------- history ---------------- */
-  function renderHistory(){
-    var container = $("historyList");
-    var dates = Object.keys(state.entries).sort().reverse();
-    if(dates.length === 0){
-      container.innerHTML = '<p class="empty-state">এখনো কোনো খরচ যোগ করা হয়নি</p>';
+  /* ---------------- today's limit ---------------- */
+  function renderTodayLimit(){
+    var el = $("todayLimit");
+    if(!state.setup) return;
+    var today = todayStr();
+    if(today < state.setup.startDate || today > state.setup.endDate){ el.classList.add("hidden"); return; }
+    el.classList.remove("hidden");
+    var t = getTotals(), d = getDaysInfo();
+    var spentToday = state.entries[today] ? Number(state.entries[today].amount || 0) : 0;
+    var limit = Math.max(t.remaining + spentToday, 0) / (d.daysLeft + 1);
+    var over = spentToday > limit + 0.5;
+    var pct = limit > 0 ? Math.min(spentToday / limit * 100, 100) : (spentToday > 0 ? 100 : 0);
+    el.classList.toggle("over", over);
+    el.innerHTML =
+      '<div class="tl-top"><span>আজকের সীমা</span><strong>' + fmtMoney(limit) + '</strong></div>' +
+      '<div class="tl-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<p class="tl-note">' + (over
+        ? 'আজ সীমার চেয়ে ' + fmtMoney(spentToday - limit) + ' বেশি খরচ হয়েছে'
+        : 'আজ এ পর্যন্ত ' + fmtMoney(spentToday) + ' খরচ — আরও ' + fmtMoney(limit - spentToday) + ' খরচ করতে পারবেন') + '</p>';
+  }
+
+  /* ---------------- stats ---------------- */
+  function renderStats(){
+    var box = $("statsBody");
+    var dates = Object.keys(state.entries).sort();
+    if(!state.setup || !dates.length){
+      box.innerHTML = '<p class="empty-state">এখনো কোনো খরচ যোগ করা হয়নি</p>';
       return;
     }
-    container.innerHTML = "";
-    dates.forEach(function(dateStr){
-      var entry = state.entries[dateStr];
-      var amt = Number(entry.amount||0);
-      var item = document.createElement("div");
-      item.className = "history-item";
-      item.innerHTML =
-        '<div class="history-top">' +
-          '<span class="history-date">' + fmtDateHuman(dateStr) + '</span>' +
-          '<span class="history-amt' + (amt > 1000 ? ' high' : '') + '">' + fmtMoney(amt) + '</span>' +
-        '</div>' +
-        (entry.note ? '<div class="history-note">' + escapeHtml(entry.note) + '</div>' : '') +
-        '<div class="history-actions">' +
-          '<button type="button" class="edit">সম্পাদনা করুন</button>' +
-          '<button type="button" class="del">মুছুন</button>' +
-        '</div>';
-      item.querySelector(".edit").addEventListener("click", function(){
-        switchTab("add");
-        entryDateInput.value = dateStr;
-        loadEntryForDate(dateStr);
-      });
-      item.querySelector(".del").addEventListener("click", function(){
-        if(!confirm(fmtDateHuman(dateStr) + " তারিখের হিসাব মুছে ফেলতে চান?")) return;
-        delete state.entries[dateStr];
-        save();
-        renderDashboard();
-        renderHistory();
-        renderCalendarIfVisible();
-      });
-      container.appendChild(item);
-    });
+    var t = getTotals(), d = getDaysInfo();
+    var avg = d.daysPassed > 0 ? t.totalSpent / d.daysPassed : 0;
+    var maxD = dates[0];
+    dates.forEach(function(k){ if(Number(state.entries[k].amount||0) > Number(state.entries[maxD].amount||0)) maxD = k; });
+
+    var forecast;
+    if(t.remaining <= 0) forecast = "টাকা শেষ বা বাজেটের চেয়ে বেশি খরচ হয়ে গেছে।";
+    else if(avg <= 0 || d.daysLeft === 0) forecast = "এখনো অনুমান করার মতো যথেষ্ট তথ্য নেই।";
+    else {
+      var lasts = Math.floor(t.remaining / avg);
+      forecast = lasts >= d.daysLeft
+        ? "এই গড় হারে চললে মেয়াদ শেষে প্রায় " + fmtMoney(t.remaining - avg * d.daysLeft) + " বাকি থাকবে।"
+        : "এই গড় হারে চললে আরও প্রায় " + lasts + " দিন চলবে — মেয়াদ শেষের " + (d.daysLeft - lasts) + " দিন আগেই টাকা শেষ হয়ে যাবে।";
+    }
+
+    var today = parseISO(todayStr()), days = [], max = 1;
+    for(var i = 6; i >= 0; i--){
+      var dt = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+      var amt = state.entries[fmtISO(dt)] ? Number(state.entries[fmtISO(dt)].amount || 0) : 0;
+      days.push({ n: dt.getDate(), amt: amt });
+      if(amt > max) max = amt;
+    }
+    var bars = days.map(function(x){
+      return '<div class="bar-col"><span class="bar-amt">' + (x.amt ? fmtMoney(x.amt) : '') + '</span>' +
+        '<i style="height:' + Math.max(x.amt / max * 100, x.amt ? 4 : 0) + '%"></i><small>' + x.n + '</small></div>';
+    }).join("");
+
+    box.innerHTML =
+      '<div class="stats-grid">' +
+        '<div class="stat-box"><small>গড় খরচ (প্রতিদিন)</small><strong>' + fmtMoney(avg) + '</strong></div>' +
+        '<div class="stat-box"><small>মোট খরচ</small><strong>' + fmtMoney(t.totalSpent) + '</strong></div>' +
+        '<div class="stat-box"><small>সবচেয়ে বেশি খরচ</small><strong>' + fmtMoney(state.entries[maxD].amount) + '</strong><em>' + fmtDateHuman(maxD) + '</em></div>' +
+        '<div class="stat-box"><small>খরচ হয়েছে যত দিন</small><strong>' + dates.length + ' দিন</strong></div>' +
+      '</div>' +
+      '<div class="card"><h3>পূর্বাভাস</h3><p class="helper-hint" style="margin:8px 0 0">' + forecast + '</p></div>' +
+      '<div class="card"><h3>শেষ ৭ দিনের খরচ</h3><div class="bars">' + bars + '</div></div>';
   }
 
   /* ---------------- expense plans (multiple named planning lists) ---------------- */
