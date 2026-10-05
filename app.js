@@ -107,7 +107,7 @@
     if(name === "plans") renderPlans();
     if(name === "bills"){ renderBills(); if(!billDtTouched) resetBillDateTime(); }
   }
-  document.querySelectorAll(".nav-btn, #bottomTabs button").forEach(function(btn){
+  document.querySelectorAll(".nav-btn, #bottomTabs button, .mobile-logout").forEach(function(btn){
     btn.addEventListener("click", function(){
       if(btn.dataset.action === "logout"){ doLogout(); return; }
       switchTab(btn.dataset.tab);
