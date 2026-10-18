@@ -491,6 +491,13 @@
 
   function deletePlan(id){
     if(!confirm("এই প্ল্যানটি মুছে ফেলতে চান? এর সব খরচের তালিকাও মুছে যাবে।")) return;
+    var plan = null;
+    for(var i=0;i<state.plans.length;i++){ if(state.plans[i].id === id) plan = state.plans[i]; }
+    if(plan){
+      plan.items.forEach(function(it){
+        if(it.done && it.linkBalance) removePlanItemFromBalance(it);
+      });
+    }
     state.plans = state.plans.filter(function(p){ return p.id !== id; });
     if(state.activePlanId === id){
       state.activePlanId = state.plans.length ? state.plans[0].id : null;
@@ -498,6 +505,8 @@
     editingPlanItemId = null;
     save();
     renderPlans();
+    renderDashboard();
+    renderCalendarIfVisible();
   }
 
   function renamePlan(id){
@@ -511,6 +520,34 @@
     plan.title = name;
     save();
     renderPlans();
+  }
+
+  // for plan items marked "link to balance": add/remove their amount from the main
+  // expense entries (so it also counts against the main balance), tracking exactly
+  // what was applied (date + amount) so it can be cleanly reversed later.
+  function applyPlanItemToBalance(item){
+    if(!item.linkBalance) return;
+    removePlanItemFromBalance(item);
+    var date = item.completedDate || todayStr();
+    if(!state.entries[date]) state.entries[date] = { amount: 0, note: "" };
+    state.entries[date].amount = Number(state.entries[date].amount || 0) + Number(item.amount || 0);
+    item.appliedDate = date;
+    item.appliedAmount = Number(item.amount || 0);
+  }
+
+  function removePlanItemFromBalance(item){
+    if(!item.appliedDate) return;
+    var date = item.appliedDate;
+    if(state.entries[date]){
+      var newAmt = Number(state.entries[date].amount || 0) - Number(item.appliedAmount || 0);
+      if(newAmt <= 0 && !(state.entries[date].note && state.entries[date].note.trim())){
+        delete state.entries[date];
+      } else {
+        state.entries[date].amount = Math.max(newAmt, 0);
+      }
+    }
+    item.appliedDate = null;
+    item.appliedAmount = 0;
   }
 
   function planTotals(plan){
@@ -584,9 +621,12 @@
             if(!name) return;
             item.name = name;
             item.amount = amount;
+            if(item.done && item.linkBalance) applyPlanItemToBalance(item);
             editingPlanItemId = null;
             save();
             renderPlanItems(plan);
+            renderDashboard();
+            renderCalendarIfVisible();
           });
           row.querySelector(".cancel").addEventListener("click", function(){
             editingPlanItemId = null;
@@ -599,7 +639,7 @@
               '<input type="checkbox"' + (item.done ? " checked" : "") + '>' +
             '</label>' +
             '<div class="plan-item-main">' +
-              '<span class="plan-item-name">' + escapeHtml(item.name) + '</span>' +
+              '<span class="plan-item-name">' + escapeHtml(item.name) + (item.linkBalance ? ' <span class="link-badge" title="সম্পন্ন করলে মূল ব্যালেন্স থেকেও কাটবে">🔗</span>' : '') + '</span>' +
               '<span class="plan-item-amt">' + fmtMoney(item.amount) + '</span>' +
             '</div>' +
             (item.done ? '<div class="plan-item-date"><input type="date" class="done-date"></div>' : '') +
@@ -612,14 +652,24 @@
             row.querySelector(".done-date").value = item.completedDate || todayStr();
             row.querySelector(".done-date").addEventListener("change", function(e){
               item.completedDate = e.target.value || todayStr();
+              if(item.linkBalance) applyPlanItemToBalance(item);
               save();
+              renderDashboard();
+              renderCalendarIfVisible();
             });
           }
           row.querySelector('input[type=checkbox]').addEventListener("change", function(e){
             item.done = e.target.checked;
-            if(item.done && !item.completedDate) item.completedDate = todayStr();
+            if(item.done){
+              if(!item.completedDate) item.completedDate = todayStr();
+              applyPlanItemToBalance(item);
+            } else {
+              removePlanItemFromBalance(item);
+            }
             save();
             renderPlanItems(plan);
+            renderDashboard();
+            renderCalendarIfVisible();
           });
           row.querySelector(".edit").addEventListener("click", function(){
             editingPlanItemId = item.id;
@@ -627,9 +677,12 @@
           });
           row.querySelector(".del").addEventListener("click", function(){
             if(!confirm('"' + item.name + '" মুছে ফেলতে চান?')) return;
+            if(item.done && item.linkBalance) removePlanItemFromBalance(item);
             plan.items = plan.items.filter(function(x){ return x.id !== item.id; });
             save();
             renderPlanItems(plan);
+            renderDashboard();
+            renderCalendarIfVisible();
           });
         }
         container.appendChild(row);
@@ -649,10 +702,15 @@
     var name = $("planItemName").value.trim();
     var amount = Number($("planItemAmount").value || 0);
     if(!name) return;
-    plan.items.push({ id: uid(), name: name, amount: amount, done: false, completedDate: null });
+    var linkBalance = $("planItemLinkBalance").checked;
+    plan.items.push({
+      id: uid(), name: name, amount: amount, done: false, completedDate: null,
+      linkBalance: linkBalance, appliedDate: null, appliedAmount: 0
+    });
     save();
     $("planItemName").value = "";
     $("planItemAmount").value = "";
+    $("planItemLinkBalance").checked = false;
     renderPlanItems(plan);
   });
 
