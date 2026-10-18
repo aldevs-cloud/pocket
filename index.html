@@ -283,8 +283,28 @@
       <section id="tab-settings" class="tab-panel hidden">
         <h2>ব্যালেন্স ও সেটিংস</h2>
 
+        <div class="card" id="closePeriodCard">
+          <h3>নতুন মেয়াদ শুরু করুন</h3>
+          <p class="helper-hint" id="closePeriodHint">বর্তমান মেয়াদ বন্ধ করে নতুন মেয়াদ শুরু করলে, আগের মেয়াদের হিসাব (ব্যালেন্স, খরচ, গড়) ইতিহাসে সেভ হয়ে যাবে — পরিসংখ্যান ট্যাবে গিয়ে দেখতে পারবেন।</p>
+          <form id="closePeriodForm">
+            <label>নতুন ব্যালেন্স (৳)
+              <input type="number" id="cp_balance" inputmode="decimal" min="0" step="1" required placeholder="যেমন: ১৫০০০">
+            </label>
+            <div class="two-col">
+              <label>শুরুর তারিখ
+                <input type="date" id="cp_start" required>
+              </label>
+              <label>শেষ তারিখ
+                <input type="date" id="cp_end" required>
+              </label>
+            </div>
+            <button type="submit">মেয়াদ ক্লোজ করে নতুন শুরু করুন</button>
+          </form>
+        </div>
+
         <div class="card">
           <h3>বাজেটের সময়কাল</h3>
+          <p class="helper-hint">চলতি মেয়াদের তথ্য ঠিক করতে চাইলে (ইতিহাসে কিছু সেভ হবে না)</p>
           <form id="setupEditForm">
             <label>শুরুর ব্যালেন্স (৳)
               <input type="number" id="set_balance" inputmode="decimal" min="0" step="1" required>
