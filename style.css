@@ -509,6 +509,7 @@ button[type=submit]:hover,.primary-btn:hover{background:var(--primary-dark);}
   display:flex;
   flex-direction:row;
   align-items:center;
+  justify-content:space-between;
   gap:12px;
   margin:2px 0 16px;
   padding:12px 14px;
@@ -519,18 +520,15 @@ button[type=submit]:hover,.primary-btn:hover{background:var(--primary-dark);}
   transition:border-color .15s ease, background .15s ease;
 }
 .plan-link-check:hover{border-color:var(--primary);}
+.plan-link-text{flex:1;min-width:0;font-size:.82rem;color:var(--ink-soft);line-height:1.45;}
 .plan-link-check input[type=checkbox]{
   width:19px;height:19px;flex-shrink:0;accent-color:var(--primary);margin:0;
 }
-.plan-link-icon{font-size:1.15rem;flex-shrink:0;line-height:1;}
-.plan-link-text{display:flex;flex-direction:column;gap:3px;min-width:0;}
-.plan-link-text strong{font-size:.86rem;font-weight:600;color:var(--ink);}
-.plan-link-text small{font-size:.76rem;color:var(--ink-faint);line-height:1.45;}
 .plan-link-check:has(input:checked){
   border-color:var(--primary);
   background:var(--primary-soft);
 }
-.plan-link-check:has(input:checked) .plan-link-text strong{color:var(--primary-dark);}
+.plan-link-check:has(input:checked) .plan-link-text{color:var(--primary-dark);}
 .link-badge{font-size:.8em;}
 
 .plan-items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
