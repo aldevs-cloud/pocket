@@ -505,6 +505,13 @@ button[type=submit]:hover,.primary-btn:hover{background:var(--primary-dark);}
 .ghost-btn.small,.danger.small{width:auto;padding:8px 14px;font-size:.8rem;}
 
 .plan-item-form{margin-bottom:16px;}
+.plan-link-check{
+  display:flex;align-items:flex-start;gap:8px;
+  font-size:.82rem;color:var(--ink-soft);
+  margin:4px 0 14px;cursor:pointer;
+}
+.plan-link-check input[type=checkbox]{margin-top:2px;flex-shrink:0;}
+.link-badge{font-size:.8em;}
 
 .plan-items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
 .plan-item{
