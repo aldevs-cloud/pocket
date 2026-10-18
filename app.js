@@ -33,21 +33,29 @@
   var state = null;
 
   function defaultState(){
-    return { setup: null, topups: [], entries: {}, quickNotes: {}, plans: [], activePlanId: null, bills: [], activeBillId: null };
+    return { setup: null, topups: [], entries: {}, quickNotes: {}, plans: [], activePlanId: null, bills: [], activeBillId: null, cycles: [] };
   }
 
-  function getTotals(){
-    var totalBalance = (state.setup ? Number(state.setup.initialBalance) : 0) +
-      state.topups.reduce(function(s,t){ return s + Number(t.amount||0); }, 0);
+  // totals/days are always scoped to ONE period (by default the current state.setup);
+  // pass a different setup object (e.g. an old, closed period) to summarize that period instead.
+  function getTotals(setupOverride){
+    var setup = setupOverride || state.setup;
+    if(!setup) return { totalBalance: 0, totalSpent: 0, remaining: 0 };
+    var start = setup.startDate, end = setup.endDate;
+    var topupsSum = state.topups.reduce(function(s,t){
+      return (t.date >= start && t.date <= end) ? s + Number(t.amount || 0) : s;
+    }, 0);
+    var totalBalance = Number(setup.initialBalance || 0) + topupsSum;
     var totalSpent = Object.keys(state.entries).reduce(function(s,k){
-      return s + Number(state.entries[k].amount || 0);
+      return (k >= start && k <= end) ? s + Number(state.entries[k].amount || 0) : s;
     }, 0);
     return { totalBalance: totalBalance, totalSpent: totalSpent, remaining: totalBalance - totalSpent };
   }
 
-  function getDaysInfo(){
-    if(!state.setup) return { daysTotal:0, daysPassed:0, daysLeft:0 };
-    var start = state.setup.startDate, end = state.setup.endDate;
+  function getDaysInfo(setupOverride){
+    var setup = setupOverride || state.setup;
+    if(!setup) return { daysTotal:0, daysPassed:0, daysLeft:0 };
+    var start = setup.startDate, end = setup.endDate;
     var daysTotal = daysBetween(parseISO(start), parseISO(end)) + 1;
     var today = todayStr();
     var passed;
@@ -82,11 +90,16 @@
       var perDay = Math.max(t.remaining, 0) / d.daysLeft;
       suggestEl.textContent = "প্রতিদিন গড়ে " + fmtMoney(perDay) + " করে খরচ করলে শেষ দিন পর্যন্ত চলবে";
     } else if(t.remaining < 0){
-      suggestEl.textContent = "নির্ধারিত সময় শেষ, বরাদ্দের চেয়ে বেশি খরচ হয়ে গেছে";
+      suggestEl.textContent = "এই মেয়াদ শেষ, বরাদ্দের চেয়ে বেশি খরচ হয়ে গেছে — সেটিংসে গিয়ে নতুন মেয়াদ শুরু করুন";
     } else {
-      suggestEl.textContent = "নির্ধারিত সময় শেষ হয়ে গেছে";
+      suggestEl.textContent = "এই মেয়াদ শেষ হয়ে গেছে — সেটিংসে গিয়ে নতুন মেয়াদ শুরু করুন";
     }
     renderTodayLimit();
+
+    var expired = todayStr() > state.setup.endDate;
+    document.querySelectorAll('[data-tab="settings"]').forEach(function(el){
+      el.classList.toggle("needs-attention", expired);
+    });
   }
 
   /* ---------------- tabs ---------------- */
@@ -141,6 +154,17 @@
   entryDateInput.addEventListener("change", function(){
     loadEntryForDate(entryDateInput.value);
   });
+
+  // re-sync the add-entry date picker (min/max/value) to the active period —
+  // call this whenever state.setup's dates change (period edited, or a new period started)
+  function updateEntryDateBounds(){
+    if(!state.setup) return;
+    entryDateInput.min = state.setup.startDate;
+    entryDateInput.max = state.setup.endDate;
+    var clamped = clampDate(entryDateInput.value || todayStr(), state.setup.startDate, state.setup.endDate);
+    entryDateInput.value = clamped;
+    loadEntryForDate(clamped);
+  }
 
   $("entryForm").addEventListener("submit", function(e){
     e.preventDefault();
@@ -325,32 +349,57 @@
   }
 
   /* ---------------- stats ---------------- */
+  // how many 7-day steps back from "today" the bar chart window currently shows (0 = most recent)
+  var statsBarOffset = 0;
+
   function renderStats(){
     var box = $("statsBody");
-    var dates = Object.keys(state.entries).sort();
-    if(!state.setup || !dates.length){
-      box.innerHTML = '<p class="empty-state">এখনো কোনো খরচ যোগ করা হয়নি</p>';
-      return;
-    }
-    var t = getTotals(), d = getDaysInfo();
-    var avg = d.daysPassed > 0 ? t.totalSpent / d.daysPassed : 0;
-    var maxD = dates[0];
-    dates.forEach(function(k){ if(Number(state.entries[k].amount||0) > Number(state.entries[maxD].amount||0)) maxD = k; });
+    var html = "";
 
-    var forecast;
-    if(t.remaining <= 0) forecast = "টাকা শেষ বা বাজেটের চেয়ে বেশি খরচ হয়ে গেছে।";
-    else if(avg <= 0 || d.daysLeft === 0) forecast = "এখনো অনুমান করার মতো যথেষ্ট তথ্য নেই।";
-    else {
-      var lasts = Math.floor(t.remaining / avg);
-      forecast = lasts >= d.daysLeft
-        ? "এই গড় হারে চললে মেয়াদ শেষে প্রায় " + fmtMoney(t.remaining - avg * d.daysLeft) + " বাকি থাকবে।"
-        : "এই গড় হারে চললে আরও প্রায় " + lasts + " দিন চলবে — মেয়াদ শেষের " + (d.daysLeft - lasts) + " দিন আগেই টাকা শেষ হয়ে যাবে।";
+    if(state.setup){
+      var dates = Object.keys(state.entries).filter(function(k){
+        return k >= state.setup.startDate && k <= state.setup.endDate;
+      }).sort();
+
+      if(dates.length){
+        var t = getTotals(), d = getDaysInfo();
+        var avg = d.daysPassed > 0 ? t.totalSpent / d.daysPassed : 0;
+        var maxD = dates[0];
+        dates.forEach(function(k){ if(Number(state.entries[k].amount||0) > Number(state.entries[maxD].amount||0)) maxD = k; });
+
+        var forecast;
+        if(t.remaining <= 0) forecast = "টাকা শেষ বা বাজেটের চেয়ে বেশি খরচ হয়ে গেছে।";
+        else if(avg <= 0 || d.daysLeft === 0) forecast = "এখনো অনুমান করার মতো যথেষ্ট তথ্য নেই।";
+        else {
+          var lasts = Math.floor(t.remaining / avg);
+          forecast = lasts >= d.daysLeft
+            ? "এই গড় হারে চললে মেয়াদ শেষে প্রায় " + fmtMoney(t.remaining - avg * d.daysLeft) + " বাকি থাকবে।"
+            : "এই গড় হারে চললে আরও প্রায় " + lasts + " দিন চলবে — মেয়াদ শেষের " + (d.daysLeft - lasts) + " দিন আগেই টাকা শেষ হয়ে যাবে।";
+        }
+
+        html +=
+          '<div class="stats-grid">' +
+            '<div class="stat-box"><small>গড় খরচ (প্রতিদিন)</small><strong>' + fmtMoney(avg) + '</strong></div>' +
+            '<div class="stat-box"><small>মোট খরচ</small><strong>' + fmtMoney(t.totalSpent) + '</strong></div>' +
+            '<div class="stat-box"><small>সবচেয়ে বেশি খরচ</small><strong>' + fmtMoney(state.entries[maxD].amount) + '</strong><em>' + fmtDateHuman(maxD) + '</em></div>' +
+            '<div class="stat-box"><small>খরচ হয়েছে যত দিন</small><strong>' + dates.length + ' দিন</strong></div>' +
+          '</div>' +
+          '<div class="card"><h3>পূর্বাভাস</h3><p class="helper-hint" style="margin:8px 0 0">' + forecast + '</p></div>';
+      } else {
+        html += '<p class="empty-state">এই মেয়াদে এখনো কোনো খরচ যোগ করা হয়নি</p>';
+      }
+    } else {
+      html += '<p class="empty-state">এখনো হিসাব শুরু করা হয়নি</p>';
     }
 
-    var today = parseISO(todayStr()), days = [], max = 1;
+    // navigable 7-day bar window — can look back further than the current period
+    var todayD = parseISO(todayStr());
+    var windowEndD = new Date(todayD.getFullYear(), todayD.getMonth(), todayD.getDate() - statsBarOffset * 7);
+    var days = [], max = 1;
     for(var i = 6; i >= 0; i--){
-      var dt = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
-      var amt = state.entries[fmtISO(dt)] ? Number(state.entries[fmtISO(dt)].amount || 0) : 0;
+      var dt = new Date(windowEndD.getFullYear(), windowEndD.getMonth(), windowEndD.getDate() - i);
+      var ds = fmtISO(dt);
+      var amt = state.entries[ds] ? Number(state.entries[ds].amount || 0) : 0;
       days.push({ n: dt.getDate(), amt: amt });
       if(amt > max) max = amt;
     }
@@ -358,16 +407,54 @@
       return '<div class="bar-col"><span class="bar-amt">' + (x.amt ? fmtMoney(x.amt) : '') + '</span>' +
         '<i style="height:' + Math.max(x.amt / max * 100, x.amt ? 4 : 0) + '%"></i><small>' + x.n + '</small></div>';
     }).join("");
+    var rangeStartD = new Date(windowEndD.getFullYear(), windowEndD.getMonth(), windowEndD.getDate() - 6);
+    var rangeLabel = rangeStartD.getDate() + " " + MONTHS[rangeStartD.getMonth()] + " – " + windowEndD.getDate() + " " + MONTHS[windowEndD.getMonth()];
 
-    box.innerHTML =
-      '<div class="stats-grid">' +
-        '<div class="stat-box"><small>গড় খরচ (প্রতিদিন)</small><strong>' + fmtMoney(avg) + '</strong></div>' +
-        '<div class="stat-box"><small>মোট খরচ</small><strong>' + fmtMoney(t.totalSpent) + '</strong></div>' +
-        '<div class="stat-box"><small>সবচেয়ে বেশি খরচ</small><strong>' + fmtMoney(state.entries[maxD].amount) + '</strong><em>' + fmtDateHuman(maxD) + '</em></div>' +
-        '<div class="stat-box"><small>খরচ হয়েছে যত দিন</small><strong>' + dates.length + ' দিন</strong></div>' +
-      '</div>' +
-      '<div class="card"><h3>পূর্বাভাস</h3><p class="helper-hint" style="margin:8px 0 0">' + forecast + '</p></div>' +
-      '<div class="card"><h3>শেষ ৭ দিনের খরচ</h3><div class="bars">' + bars + '</div></div>';
+    html +=
+      '<div class="card"><div class="bars-head"><h3>৭ দিনের খরচ</h3>' +
+        '<div class="bars-nav">' +
+          '<button type="button" id="statsBarPrev" aria-label="আগের সপ্তাহ">←</button>' +
+          '<span class="bars-range">' + rangeLabel + '</span>' +
+          '<button type="button" id="statsBarNext" aria-label="পরের সপ্তাহ"' + (statsBarOffset === 0 ? ' disabled' : '') + '>→</button>' +
+        '</div>' +
+      '</div><div class="bars">' + bars + '</div></div>';
+
+    // history of closed periods
+    var cyclesHtml;
+    if(state.cycles && state.cycles.length){
+      var sorted = state.cycles.slice().sort(function(a,b){ return b.endDate.localeCompare(a.endDate); });
+      cyclesHtml = sorted.map(function(c){
+        var over = c.remaining < 0;
+        return '<div class="cycle-row">' +
+            '<div class="cycle-row-head"><strong>' + fmtDateHuman(c.startDate) + ' – ' + fmtDateHuman(c.endDate) + '</strong>' +
+            '<button type="button" class="cycle-del" data-id="' + c.id + '" aria-label="মুছুন">×</button></div>' +
+            '<div class="cycle-row-grid">' +
+              '<div><small>মোট ব্যালেন্স</small><span>' + fmtMoney(c.totalBalance) + '</span></div>' +
+              '<div><small>মোট খরচ</small><span>' + fmtMoney(c.totalSpent) + '</span></div>' +
+              '<div><small>' + (over ? 'বেশি খরচ হয়েছে' : 'বাকি ছিল') + '</small><span class="' + (over ? 'neg' : 'pos') + '">' + fmtMoney(Math.abs(c.remaining)) + '</span></div>' +
+              '<div><small>দৈনিক গড় খরচ</small><span>' + fmtMoney(c.avgPerDay) + '</span></div>' +
+            '</div>' +
+          '</div>';
+      }).join("");
+    } else {
+      cyclesHtml = '<p class="empty-state">এখনো কোনো মেয়াদ ইতিহাসে জমা হয়নি — মেয়াদ শেষে সেটিংস থেকে নতুন মেয়াদ শুরু করলে পুরোনোটা এখানে জমা হবে</p>';
+    }
+    html += '<div class="card"><h3>আগের মেয়াদের ইতিহাস</h3>' + cyclesHtml + '</div>';
+
+    box.innerHTML = html;
+
+    var prevBtn = $("statsBarPrev"), nextBtn = $("statsBarNext");
+    if(prevBtn) prevBtn.addEventListener("click", function(){ statsBarOffset++; renderStats(); });
+    if(nextBtn) nextBtn.addEventListener("click", function(){ if(statsBarOffset > 0){ statsBarOffset--; renderStats(); } });
+
+    box.querySelectorAll(".cycle-del").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        if(!confirm("এই ইতিহাস এন্ট্রি মুছে ফেলতে চান?")) return;
+        state.cycles = state.cycles.filter(function(c){ return c.id !== btn.dataset.id; });
+        save();
+        renderStats();
+      });
+    });
   }
 
   /* ---------------- expense plans (multiple named planning lists) ---------------- */
@@ -888,6 +975,22 @@
     $("set_end").value = state.setup.endDate;
     $("topup_date").value = todayStr();
     renderTopupHistory();
+
+    // suggested defaults for starting the next period: right after the current one ends
+    var nextStart = parseISO(state.setup.endDate);
+    nextStart.setDate(nextStart.getDate() + 1);
+    var nextStartStr = fmtISO(nextStart);
+    var nextEnd = new Date(nextStart);
+    nextEnd.setDate(nextEnd.getDate() + 9);
+    $("cp_start").value = nextStartStr;
+    $("cp_end").value = fmtISO(nextEnd);
+    $("cp_balance").value = "";
+
+    var expired = todayStr() > state.setup.endDate;
+    $("closePeriodCard").classList.toggle("expired", expired);
+    $("closePeriodHint").textContent = expired
+      ? "আপনার আগের মেয়াদ শেষ হয়ে গেছে। নিচের তথ্য দিয়ে নতুন মেয়াদ শুরু করুন — আগের মেয়াদের ব্যালেন্স, খরচ ও গড় হিসাব ইতিহাসে সেভ হয়ে যাবে (পরিসংখ্যান ট্যাবে দেখা যাবে)।"
+      : "চাইলে এখনই চলতি মেয়াদ বন্ধ করে নতুন মেয়াদ শুরু করতে পারেন — চলতি মেয়াদের হিসাব ইতিহাসে সেভ হয়ে যাবে (পরিসংখ্যান ট্যাবে দেখা যাবে)।";
   }
 
   $("setupEditForm").addEventListener("submit", function(e){
@@ -898,9 +1001,51 @@
       endDate: $("set_end").value
     };
     save();
+    updateEntryDateBounds();
     renderDashboard();
     renderCalendarIfVisible();
+    fillSettingsForm();
     alert("আপডেট হয়ে গেছে");
+  });
+
+  // closes the current period (archiving its summary into state.cycles) and starts a fresh one
+  function closeCurrentPeriodAndStartNew(newSetup){
+    if(state.setup){
+      var old = state.setup;
+      var t = getTotals(old), d = getDaysInfo(old);
+      var avg = d.daysPassed > 0 ? t.totalSpent / d.daysPassed : 0;
+      state.cycles.push({
+        id: uid(),
+        startDate: old.startDate,
+        endDate: old.endDate,
+        initialBalance: Number(old.initialBalance || 0),
+        totalBalance: t.totalBalance,
+        totalSpent: t.totalSpent,
+        remaining: t.remaining,
+        daysPassed: d.daysPassed,
+        avgPerDay: avg,
+        closedAt: new Date().toISOString()
+      });
+    }
+    state.setup = newSetup;
+    save();
+    updateEntryDateBounds();
+    renderDashboard();
+    renderCalendarIfVisible();
+  }
+
+  $("closePeriodForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var startVal = $("cp_start").value, endVal = $("cp_end").value;
+    if(endVal < startVal){ alert("শেষ তারিখ শুরুর তারিখের আগে হতে পারবে না।"); return; }
+    if(!confirm("চলতি মেয়াদ বন্ধ হয়ে ইতিহাসে সেভ হবে, এবং নতুন মেয়াদ শুরু হবে। এগোতে চান?")) return;
+    closeCurrentPeriodAndStartNew({
+      initialBalance: Number($("cp_balance").value || 0),
+      startDate: startVal,
+      endDate: endVal
+    });
+    fillSettingsForm();
+    alert("নতুন মেয়াদ শুরু হয়েছে!");
   });
 
   $("topupForm").addEventListener("submit", function(e){
@@ -1143,7 +1288,8 @@
       plans: p.plans || [],
       activePlanId: p.activePlanId || null,
       bills: p.bills || [],
-      activeBillId: p.activeBillId || null
+      activeBillId: p.activeBillId || null,
+      cycles: p.cycles || []
     };
   }
 
